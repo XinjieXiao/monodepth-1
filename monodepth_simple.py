@@ -21,7 +21,6 @@ import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import scipy.misc
 import matplotlib.pyplot as plt
-
 from monodepth_model import *
 from monodepth_dataloader import *
 from average_gradients import *
@@ -33,6 +32,7 @@ parser.add_argument('--image_path',       type=str,   help='path to the image', 
 parser.add_argument('--checkpoint_path',  type=str,   help='path to a specific checkpoint to load', required=True)
 parser.add_argument('--input_height',     type=int,   help='input height', default=256)
 parser.add_argument('--input_width',      type=int,   help='input width', default=512)
+parser.add_argument('--output_path',      type=str,   help='path to the output', default='./deep_results')
 
 args = parser.parse_args()
 
@@ -52,38 +52,46 @@ def test_simple(params):
     left  = tf.placeholder(tf.float32, [2, args.input_height, args.input_width, 3])
     model = MonodepthModel(params, "test", left, None)
 
-    input_image = scipy.misc.imread(args.image_path, mode="RGB")
-    original_height, original_width, num_channels = input_image.shape
-    input_image = scipy.misc.imresize(input_image, [args.input_height, args.input_width], interp='lanczos')
-    input_image = input_image.astype(np.float32) / 255
-    input_images = np.stack((input_image, np.fliplr(input_image)), 0)
 
-    # SESSION
-    config = tf.ConfigProto(allow_soft_placement=True)
-    sess = tf.Session(config=config)
+    images = os.listdir(args.image_path)
+    for i in range(len(images)):
+        input_image_path = os.path.join(args.image_path,images[i])
+        input_image = scipy.misc.imread(input_image_path, mode="RGB")
+        original_height, original_width, num_channels = input_image.shape
+        input_image = scipy.misc.imresize(input_image, [args.input_height, args.input_width], interp='lanczos')
+        input_image = input_image.astype(np.float32) / 255
+        input_images = np.stack((input_image, np.fliplr(input_image)), 0)
 
-    # SAVER
-    train_saver = tf.train.Saver()
+        # SESSION
+        config = tf.ConfigProto(allow_soft_placement=True)
+        sess = tf.Session(config=config)
 
-    # INIT
-    sess.run(tf.global_variables_initializer())
-    sess.run(tf.local_variables_initializer())
-    coordinator = tf.train.Coordinator()
-    threads = tf.train.start_queue_runners(sess=sess, coord=coordinator)
+        # SAVER
+        train_saver = tf.train.Saver()
+        # train_saver = tf.train.import_meta_graph('./models/model_kitti/model_kitti.meta')
 
-    # RESTORE
-    restore_path = args.checkpoint_path.split(".")[0]
-    train_saver.restore(sess, restore_path)
+        # INIT
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
+        coordinator = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coordinator)
 
-    disp = sess.run(model.disp_left_est[0], feed_dict={left: input_images})
-    disp_pp = post_process_disparity(disp.squeeze()).astype(np.float32)
+        # RESTORE
+        restore_path = args.checkpoint_path
+        train_saver.restore(sess, restore_path)
 
-    output_directory = os.path.dirname(args.image_path)
-    output_name = os.path.splitext(os.path.basename(args.image_path))[0]
 
-    np.save(os.path.join(output_directory, "{}_disp.npy".format(output_name)), disp_pp)
-    disp_to_img = scipy.misc.imresize(disp_pp.squeeze(), [original_height, original_width])
-    plt.imsave(os.path.join(output_directory, "{}_disp.png".format(output_name)), disp_to_img, cmap='plasma')
+        disp = sess.run(model.disp_left_est[0], feed_dict={left: input_images})
+        disp_pp = post_process_disparity(disp.squeeze()).astype(np.float32)
+
+        # output_directory = os.path.dirname(args.image_path)
+        # output_name = os.path.splitext(os.path.basename(args.image_path))[0]
+        output_name = images[i]
+
+        # np.save(os.path.join(output_directory, "{}_disp.npy".format(output_name)), disp_pp)
+        disp_to_img = scipy.misc.imresize(disp_pp.squeeze(), [original_height, original_width])
+        plt.imsave(os.path.join(args.output_path, "{}".format(output_name)), disp_to_img, cmap='plasma')
+        print(str(i + 1) + '/' + str(len(images)))
 
     print('done!')
 
