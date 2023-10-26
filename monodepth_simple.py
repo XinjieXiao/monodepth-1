@@ -52,6 +52,23 @@ def test_simple(params):
     left  = tf.placeholder(tf.float32, [2, args.input_height, args.input_width, 3])
     model = MonodepthModel(params, "test", left, None)
 
+    # SESSION
+    config = tf.ConfigProto(allow_soft_placement=True)
+    sess = tf.Session(config=config)
+
+    # SAVER
+    train_saver = tf.train.Saver()
+    # train_saver = tf.train.import_meta_graph('./models/model_kitti/model_kitti.meta')
+
+    # INIT
+    sess.run(tf.global_variables_initializer())
+    sess.run(tf.local_variables_initializer())
+    coordinator = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(sess=sess, coord=coordinator)
+
+    # RESTORE
+    restore_path = args.checkpoint_path
+    train_saver.restore(sess, restore_path)
 
     images = os.listdir(args.image_path)
     for i in range(len(images)):
@@ -61,24 +78,6 @@ def test_simple(params):
         input_image = scipy.misc.imresize(input_image, [args.input_height, args.input_width], interp='lanczos')
         input_image = input_image.astype(np.float32) / 255
         input_images = np.stack((input_image, np.fliplr(input_image)), 0)
-
-        # SESSION
-        config = tf.ConfigProto(allow_soft_placement=True)
-        sess = tf.Session(config=config)
-
-        # SAVER
-        train_saver = tf.train.Saver()
-        # train_saver = tf.train.import_meta_graph('./models/model_kitti/model_kitti.meta')
-
-        # INIT
-        sess.run(tf.global_variables_initializer())
-        sess.run(tf.local_variables_initializer())
-        coordinator = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coordinator)
-
-        # RESTORE
-        restore_path = args.checkpoint_path
-        train_saver.restore(sess, restore_path)
 
 
         disp = sess.run(model.disp_left_est[0], feed_dict={left: input_images})
