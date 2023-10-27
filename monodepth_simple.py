@@ -30,7 +30,7 @@ parser = argparse.ArgumentParser(description='Monodepth TensorFlow implementatio
 parser.add_argument('--encoder',          type=str,   help='type of encoder, vgg or resnet50', default='vgg')
 parser.add_argument('--image_path',       type=str,   help='path to the image', required=True)
 parser.add_argument('--checkpoint_path',  type=str,   help='path to a specific checkpoint to load', required=True)
-parser.add_argument('--input_height',     type=int,   help='input height', default=256)
+parser.add_argument('--input_height',     type=int,   help='input height', default=512)
 parser.add_argument('--input_width',      type=int,   help='input width', default=512)
 parser.add_argument('--output_path',      type=str,   help='path to the output', default='./deep_results')
 
@@ -78,8 +78,6 @@ def test_simple(params):
         input_image = scipy.misc.imresize(input_image, [args.input_height, args.input_width], interp='lanczos')
         input_image = input_image.astype(np.float32) / 255
         input_images = np.stack((input_image, np.fliplr(input_image)), 0)
-
-
         disp = sess.run(model.disp_left_est[0], feed_dict={left: input_images})
         disp_pp = post_process_disparity(disp.squeeze()).astype(np.float32)
 
